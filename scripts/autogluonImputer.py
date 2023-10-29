@@ -307,27 +307,6 @@ class Imputer:
         with open(os.path.join(path, 'colsummary.pkl'), 'rb') as f:
             self.colsummary = pickle.load(f)
 
-    def missingness_matrix(self, data):
-        """
-        Create a missingness matrix from the input data. For each column in the input data, a new column 
-        named `col_missing` is created in the output DataFrame. This new column has 1 if the value in the 
-        original column was missing, and 0 otherwise.
-        
-        Parameters:
-        ----------
-        data : pandas DataFrame
-            The input data for which the missingness matrix will be generated.
-            
-        Returns:
-        -------
-        pandas DataFrame
-            The missingness matrix.
-        """
-        missingness_df = pd.DataFrame()
-        for col in data.columns:
-            missingness_df[col + '_missing'] = data[col].isnull().astype(int)
-        return missingness_df
-
     def add_missingness_at_random(self, data, percentage):
         """
         Add missingness at random at a specified percentage without overlapping with original missingness.
@@ -356,10 +335,12 @@ class Imputer:
             n_missing = int(len(non_missing_indices) * percentage)
 
             missing_indices = np.random.choice(non_missing_indices, n_missing, replace=False)
-            modified_data[col].loc[missing_indices] = np.nan
+            # Use .loc to modify the DataFrame directly
+            modified_data.loc[missing_indices, col] = np.nan
             missingness_indices[col] = missing_indices.tolist()
 
         return modified_data, missingness_indices
+
 
     def evaluate_imputation(self, data, percentage, ntimes=10):
         """
@@ -440,9 +421,8 @@ def multiple_imputation(data, n_imputations=5, fitonce=False, **kwargs):
         for i in range(n_imputations):
             print(f"Performing imputation {i+1}/{n_imputations}")
             imputer = Imputer(**kwargs)
-            imputed_data = imputer.fit_transform(data)  # Fit and transform
+            imputed_data = imputer.fit(data)  # Fit and transform
             imputed_datasets.append(imputed_data)
-    
     return imputed_datasets
 
 

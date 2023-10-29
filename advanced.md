@@ -40,8 +40,9 @@ Performing multiple imputations can provide a more robust handling of uncertaint
 
 ```python
 from autogluonImputer import multiple_imputation
-
-imputed_datasets = multiple_imputation(train_missing, n_imputations=5)
+num_iter=2
+time_limit=10
+train_imputed = multiple_imputation(train_missing, n_imputations=10, num_iter=num_iter, time_limit=time_limit, fitonce=True)
 ```
 
 ## Evaluating Imputation Quality

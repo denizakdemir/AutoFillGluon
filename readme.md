@@ -9,7 +9,7 @@ Key features include predictive imputation, customizable iteration settings, and
 Ensure the installation of necessary dependencies:
 
 ```sh
-pip install autogluon pandas numpy
+pip install --upgrade pandas numpy scikit-learn autogluon
 ```
 
 ## Usage
@@ -20,11 +20,14 @@ In this example, we'll use the California Housing dataset, introducing random mi
 
 #### Step 1: Import Libraries and Load Data
 ```python
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_california_housing
-from autogluonImputer import Imputer
+from autogluonImputer import Imputer 
+from autogluon.tabular import TabularDataset
+
 ```
 
 #### Step 2: Prepare the Data
@@ -33,7 +36,16 @@ from autogluonImputer import Imputer
 housing = fetch_california_housing()
 df = pd.DataFrame(housing.data, columns=housing.feature_names)
 df['target'] = housing.target
-
+# convert HouseAge to categorical
+# first convert to integer. But we have missing so we use a map
+# map
+HouseAge=df['HouseAge'].map(lambda x: int(x))
+HouseAge
+df['HouseAge']=HouseAge
+df['HouseAge']
+# now convert to categorical
+df['HouseAge']=df['HouseAge'].astype('category')
+df.dtypes
 # Split the data into train and test sets
 train, test = train_test_split(df, test_size=0.3, random_state=42)
 
@@ -55,7 +67,6 @@ test_imputed = imputer.transform(test_missing)
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
-
 # Identify missing indices in test dataset
 missing_indices_test = test_missing['target'].index[test_missing['target'].apply(np.isnan)]
 
@@ -64,11 +75,10 @@ plt.scatter(test_imputed['target'][missing_indices_test], test['target'][missing
 plt.xlabel('Imputed Values')
 plt.ylabel('Original Values')
 plt.title('Imputed Values vs Original Values')
-sns.regplot(test_imputed['target'][missing_indices_test], test['target'][missing_indices_test])
-
+sns.regplot(x=test_imputed['target'][missing_indices_test], y=test['target'][missing_indices_test], scatter=False, color='red')
 # Calculate and display the correlation coefficient
 corr = np.corrcoef(test_imputed['target'][missing_indices_test], test['target'][missing_indices_test])[0,1]
-plt.text(0.5, 0.5, f'Correlation Coefficient = {round(corr, 2)}', horizontalalignment='center', verticalalignment='center', transform=plt.gca().transAxes)
+plt.text(.6, .75, f'Correlation Coefficient = {round(corr, 2)}', horizontalalignment='center', verticalalignment='center', transform=plt.gca().transAxes, color='black')
 plt.show()
 ```
 
