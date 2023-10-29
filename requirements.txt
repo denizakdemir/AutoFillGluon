@@ -1,0 +1,10 @@
+# Python 3.10.0 64bit
+autogluon
+autogluon.eda
+autogluon.multimodal
+autogluon.tabular
+autogluon.timeseries
+lifelines
+shap
+pyreadstat
+python-pptx
