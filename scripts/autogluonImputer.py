@@ -10,6 +10,10 @@ import numpy as np
 
 # AutoGluon imports
 from autogluon.tabular import TabularPredictor
+from autogluon.tabular import TabularDataset
+# to evaluate use scikit-learn metrics
+from sklearn.metrics import accuracy_score, mean_squared_error, mean_absolute_error, r2_score
+
 from autogluon.eda import auto
 import contextlib
 import sys
@@ -256,7 +260,7 @@ class Imputer:
             for col in columns:
                 if self.col_data_types[col] == 'object':
                     X_imputed[col] = X_imputed[col].astype('category')
-                    X_imputed[col].cat.set_categories(self.colsummary[col]['categories'], inplace=True)
+                    X_imputed[col].cat.set_categories(self.colsummary[col]['categories'])
         return X_imputed
 
     def feature_importance(self, X_imputed):
@@ -343,26 +347,9 @@ class Imputer:
 
 
     def evaluate_imputation(self, data, percentage, ntimes=10):
-        """
-        Evaluate the imputation process by introducing missingness and comparing the accuracy.
-
-        Parameters
-        ----------
-        data : pandas.DataFrame
-            The input data.
-        percentage : float
-            The percentage of values to set to NaN.
-        ntimes : int, optional (default=10)
-
-        Returns
-        -------
-        dict
-            Dictionary of average accuracies for each column.
-        """
         accuracies = {}
 
         for rep in range(ntimes):
-
             results = {}
             modified_data, missingness_indices = self.add_missingness_at_random(data, percentage)
             imputed_data = self.transform(modified_data)
@@ -370,20 +357,37 @@ class Imputer:
             for col in data.columns:
                 if col not in self.models:
                     continue
-                y_true_subset = data.loc[missingness_indices[col]]
-                y_pred_subset = imputed_data.loc[missingness_indices[col]]
-                evaluation = self.models[col].evaluate_predictions(y_true=y_true_subset, y_pred=y_pred_subset, auxiliary_metrics=True)
-                results[col] = evaluation
+                y_true_subset = data.loc[missingness_indices[col], col]
+                y_pred_subset = imputed_data.loc[missingness_indices[col], col]
 
+                # Filter out NaN values from predictions
+                valid_indices = ~y_true_subset.isna()
+                y_true_subset = y_true_subset[valid_indices]
+                y_pred_subset = y_pred_subset[valid_indices]
+                assert isinstance(y_true_subset, (pd.Series))
+                assert isinstance(y_pred_subset, (pd.Series))
+                assert y_true_subset.shape == y_pred_subset.shape
+                # combine y_true_subset and y_pred_subset into one dataframe
+                combdf=pd.concat([y_true_subset, y_pred_subset], axis=1)
+                # add column names
+                combdf.columns=['y_true', 'y_pred']
+                combdf=TabularDataset(combdf)
+                # drop rows with NaN values
+                combdf=combdf.dropna()
+                if self.col_data_types[col] == 'object':
+                    evaluation_acc_score = accuracy_score(combdf['y_true'], combdf['y_pred'])
+                    evaluation = {'accuracy': evaluation_acc_score}
+                else:
+                    evaluation_mse_score = mean_squared_error(combdf['y_true'], combdf['y_pred'])
+                    evaluation_mae_score = mean_absolute_error(combdf['y_true'], combdf['y_pred'])
+                    evaluation = {'mse': evaluation_mse_score, 'mae': evaluation_mae_score}
+
+                results[col] = evaluation
             accuracies[rep] = results
 
-        meanaccuracies = {}
-        for col in data.columns:
-            if col not in self.models:
-                continue
-            meanaccuracies[col] = np.mean([accuracies[rep][col] for rep in accuracies])
+        return accuracies
 
-        return meanaccuracies
+
 
 
 def multiple_imputation(data, n_imputations=5, fitonce=False, **kwargs):
@@ -424,5 +428,4 @@ def multiple_imputation(data, n_imputations=5, fitonce=False, **kwargs):
             imputed_data = imputer.fit(data)  # Fit and transform
             imputed_datasets.append(imputed_data)
     return imputed_datasets
-
 

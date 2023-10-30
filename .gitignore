@@ -21,3 +21,6 @@ __pycache__/
 *.pyc
 *.ipynb_checkpoints/
 scorer/__pycache__/
+scripts/dist/
+scripts/build/
+dist/   
