@@ -1,90 +1,111 @@
-# AutoGluon-Based Imputer Package
+## AutoGluonImputer
 
-## Overview
 This package offers a sophisticated solution for handling missing data in datasets using the AutoGluon TabularPredictor. It's adept at working with both numerical and categorical data and provides a machine-learning-driven approach for imputation.
 
-Key features include predictive imputation, customizable iteration settings, and multiple imputation capabilities, among others. The package is also capable of evaluating imputation quality and analyzing feature importance post-imputation.
+### Prerequisites
 
-## Installation
 Ensure the installation of necessary dependencies:
 
 ```sh
 pip install --upgrade pandas numpy scikit-learn autogluon
 ```
 
-## Usage
+Also, don't forget to enable the autoreload extension for seamless notebook experience:
 
-### Example with Real Data (California Housing Dataset)
-
-In this example, we'll use the California Housing dataset, introducing random missingness and then applying the imputer to fill in these gaps.
-
-#### Step 1: Import Libraries and Load Data
 ```python
+%load_ext autoreload
+%reload_ext autoreload
+%autoreload 2
+```
 
+### Step 1: Import Libraries
+
+```python
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.datasets import fetch_california_housing
-from autogluonImputer import Imputer 
+from sklearn.datasets import fetch_openml
 from autogluon.tabular import TabularDataset
-
+from scripts.autogluonImputer import Imputer
+import importlib
 ```
 
-#### Step 2: Prepare the Data
-```python
-# Load the data
-housing = fetch_california_housing()
-df = pd.DataFrame(housing.data, columns=housing.feature_names)
-df['target'] = housing.target
-# convert HouseAge to categorical
-# first convert to integer. But we have missing so we use a map
-# map
-HouseAge=df['HouseAge'].map(lambda x: int(x))
-HouseAge
-df['HouseAge']=HouseAge
-df['HouseAge']
-# now convert to categorical
-df['HouseAge']=df['HouseAge'].astype('category')
-df.dtypes
-# Split the data into train and test sets
-train, test = train_test_split(df, test_size=0.3, random_state=42)
+### Step 2: Prepare the Data
 
-# Introduce missingness
+In this example, we'll utilize the Titanic dataset from OpenML:
+
+```python
+X, y = fetch_openml("titanic", version=1, as_frame=True, return_X_y=True, parser="pandas")
+
+# Combine features and target into one dataframe
+df = X.copy()
+df['target'] = y
+
+# Drop unnecessary columns
+df.drop(['name', 'ticket'], axis=1, inplace=True)
+
+# Ensure correct data types
+df = TabularDataset(df)
+
+# Convert object columns to category type
+for col in df.columns:
+    if df[col].dtype == 'object':
+        df[col] = df[col].astype('category')
+
+# Convert integer columns to float type
+for col in df.columns:
+    if df[col].dtype == 'int64':
+        df[col] = df[col].astype('float64')
+
+# Split data and introduce missingness
+train, test = train_test_split(df, test_size=0.3, random_state=42)
 train_missing = train.mask(np.random.random(train.shape) < 0.2)
 test_missing = test.mask(np.random.random(test.shape) < 0.2)
 ```
 
-#### Step 3: Impute Missing Values
+### Step 3: Impute Missing Values
+
 ```python
-imputer = Imputer()
+imputer = Imputer(num_iter=2, time_limit=5)
 train_imputed = imputer.fit(train_missing)
 test_imputed = imputer.transform(test_missing)
 ```
 
-#### Step 4: Evaluate Imputation
+### Step 4: Evaluate Imputation
+
+Compare imputed values with the original ones for the `age` column:
+
 ```python
-# Compare imputed values with original values for the target variable
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 sns.set()
-# Identify missing indices in test dataset
-missing_indices_test = test_missing['target'].index[test_missing['target'].apply(np.isnan)]
+missing_indices_test = test_missing['age'].index[test_missing['age'].apply(np.isnan)]
 
 # Plot imputed values against original values
-plt.scatter(test_imputed['target'][missing_indices_test], test['target'][missing_indices_test])
+plt.scatter(test_imputed['age'][missing_indices_test], test['age'][missing_indices_test])
 plt.xlabel('Imputed Values')
 plt.ylabel('Original Values')
 plt.title('Imputed Values vs Original Values')
-sns.regplot(x=test_imputed['target'][missing_indices_test], y=test['target'][missing_indices_test], scatter=False, color='red')
-# Calculate and display the correlation coefficient
-corr = np.corrcoef(test_imputed['target'][missing_indices_test], test['target'][missing_indices_test])[0,1]
+sns.regplot(x=test_imputed['age'][missing_indices_test], y=test['age'][missing_indices_test], scatter=False, color='red')
+
+# Correlation Coefficient Calculation
+df = pd.DataFrame({'imputed': test_imputed['age'][missing_indices_test], 'original': test['age'][missing_indices_test]})
+df = df.dropna()
+corr = np.corrcoef(df['imputed'], df['original'])[0,1]
 plt.text(.6, .75, f'Correlation Coefficient = {round(corr, 2)}', horizontalalignment='center', verticalalignment='center', transform=plt.gca().transAxes, color='black')
 plt.show()
 ```
 
-## Advanced Usage
+### Multiple Imputation
 
-For more complex scenarios, such as applying column-specific settings, using missingness features, or performing multiple imputations, refer to the [Advanced Usage section](#advanced-usage) in the main documentation.
+For cases where multiple imputations are needed:
+
+```python
+from scripts.autogluonImputer import multiple_imputation
+
+train_imputed = multiple_imputation(train_missing, n_imputations=10, num_iter=2, time_limit=10, fitonce=True)
+```
 
 ## Contributing
 We welcome contributions! Please see the `Contributing Guide` for guidelines on submitting pull requests, reporting issues, or requesting features.
