@@ -2,6 +2,14 @@
 
 This package offers a sophisticated solution for handling missing data in datasets using the AutoGluon TabularPredictor. It's adept at working with both numerical and categorical data and provides a machine-learning-driven approach for imputation.
 
+### Installation
+
+
+```sh
+pip install git+https://github.com/dakdemir-nmdp/AutoGluonImputer.git
+```
+
+
 ### Prerequisites
 
 Ensure the installation of necessary dependencies:
