@@ -6,10 +6,11 @@ setup(
     author='Deniz Akdemir',
     author_email='dakdemir@nmdp.org',  # Replace with your email
     description='A package for imputing missing data using AutoGluon.',
-    long_description=open('README.md').read(),
+    long_description=open('readme.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/dakdemir-nmdp/AutoGluonImputer',  # Replace with your GitHub repository URL
-    package_dir={'': 'scripts'},  # Map the root package to the 'scripts' directory
+    packages=find_packages(where='scripts'),  # Finds all packages under 'scripts'
+    package_dir={'': 'scripts'},  # Maps the root package to the 'scripts' directory
     install_requires=[
         'lightgbm',
         'autogluon',
