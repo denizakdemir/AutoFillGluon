@@ -1,3 +1,4 @@
+# Ignore specific directories
 AutoGluonImputerArticle/
 AutogluonModels/
 CIBMTR_Data_Brent/
@@ -9,18 +10,45 @@ Python3_10_0_AutoGluonImputer/
 Python3_1O_O_AutoGluonImputer/
 Results/
 SurvivalDatasets/
+
+# Logs
 autogluon_fit.log
+imputer_errors.log
+*.log
+
+# OS-specific files
 .DS_Store
-scripts/.DS_Store
-*.pdf
-*.png
-.rmd
-*.pptx
-*-info
+
+# Python-specific files
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+*.whl
 *.ipynb_checkpoints/
-scorer/__pycache__/
+dist/
+build/
+
+# Package builds
 scripts/dist/
 scripts/build/
-dist/   
+
+# Ignore virtual environments
+/.venv
+
+# Ignore common document formats
+*.pdf
+*.png
+*.pptx
+
+# RMarkdown files
+.rmd
+
+# Ignore scorer cache and temporary files
+scorer/__pycache__/
+
+# Miscellaneous
+*-info
