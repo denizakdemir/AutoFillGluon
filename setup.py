@@ -18,7 +18,6 @@ setup(
         'autogluon.tabular',
         'autogluon.timeseries',
         'lifelines',
-        'shap',
         'pyreadstat'
     ],
     classifiers=[
