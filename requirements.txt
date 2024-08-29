@@ -8,3 +8,4 @@ lifelines
 shap
 pyreadstat
 python-pptx
+lightgbm
