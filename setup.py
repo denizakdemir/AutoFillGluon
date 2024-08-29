@@ -9,7 +9,7 @@ setup(
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/dakdemir-nmdp/AutoGluonImputer',  # Replace with your GitHub repository URL
-    packages=find_packages(),  # This will find packages under 'scripts' if there are any
+    package_dir={'': 'scripts'},  # Map the root package to the 'scripts' directory
     install_requires=[
         'lightgbm',
         'autogluon',
