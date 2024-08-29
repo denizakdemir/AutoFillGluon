@@ -1,0 +1,148 @@
+# Load necessary library
+library(h2o)
+library(dplyr)
+
+
+# Function to handle missing data: Imputation
+handle_missing_data <- function(data, dontuse=NULL) {
+  # Generate missingness matrix
+  if (!is.null(dontuse)){
+    dontusevars<-data[, colnames(data) %in% dontuse]
+    data <- data[, !colnames(data) %in% dontuse]
+  }
+  missingness_matrix <- as.data.frame(matrix(as.numeric(is.na(data)), ncol=ncol(data)))
+  colnames(missingness_matrix)<-paste(colnames(data), "_miss", sep="")
+  # Append missingness matrix to data (optional based on your needs)
+
+  data <- bind_cols(data, missingness_matrix) # Example of appending
+  
+  # Simple Imputation
+  # Numeric Variables: Mean Imputation
+  numeric_columns <- sapply(data, is.numeric)
+  data[, numeric_columns] <- lapply(data[, numeric_columns], function(x) {
+    ifelse(is.na(x), mean(x, na.rm = TRUE), x)
+  })
+  
+  # Categorical Variables: Mode Imputation
+  categorical_columns <- sapply(data, is.factor)
+  for (i in which(categorical_columns)) {
+    levels <- levels(data[, i])
+    data[, i][is.na(data[, i])] <- levels[which.max(tabulate(match(data[, i], x = levels)))]
+  }
+if (!is.null(dontuse)){
+    data<-cbind(data, dontusevars)
+}
+
+  return(data)
+}
+
+
+
+run_h2o_classification_automl <- function(data) {
+
+  # check data (only types of clomns accepted are numeric or factor).
+  if (any(sapply(data, function(x) !is.numeric(x) & !is.factor(x)))) {
+    stop("All columns must be either numeric or factor")
+  }
+  # Initialize H2O
+  h2o.init()
+  data_h2o <- as.h2o(data)
+  # Split the data
+  splits <- h2o.splitFrame(data = data_h2o, ratios = 0.75, seed = 123)
+  train <- splits[[1]]
+  test <- splits[[2]]
+ # Handle missing data
+  train <- handle_missing_data(as.data.frame(train))
+  test <- handle_missing_data(as.data.frame(test))
+
+  # Specify predictors and response
+  predictors <- setdiff(colnames(data_h2o), "response")
+  response <- "response"
+  # Inside your run_h2o_classification_automl function, after preprocessing data
+train_processed <- as.h2o(train)
+test_processed <- as.h2o(test)
+
+  # Run AutoML
+  automl_models <- h2o.automl(x = predictors, y = response, training_frame = train_processed, validation_frame = test_processed, seed = 123, exclude_algos = NULL , max_runtime_secs = 20,
+                              include_algos = c("DRF", "GBM", "DeepLearning", "GLM", "XGBoost", "StackedEnsemble"))
+  
+
+  # View the AutoML Leaderboard
+lb <- automl_models@leaderboard
+print(lb, n = nrow(lb))  # Print all rows instead of default (6 rows)
+
+  # Shutdown H2O to clean up
+  h2o.shutdown(prompt = FALSE)
+}
+
+
+
+
+# Function to run H2O AutoML for a regression problem
+run_h2o_regression_automl <- function(data) {
+  # Initialize H2O
+  h2o.init()
+  # Handle missing data
+  data <- handle_missing_data(data)
+  # Convert data to H2OFrame
+  data_h2o <- as.h2o(data)
+  
+  # Split the data
+  splits <- h2o.splitFrame(data = data_h2o, ratios = 0.75, seed = 123)
+  train <- splits[[1]]
+  test <- splits[[2]]
+
+  # Specify predictors and response
+  predictors <- setdiff(colnames(data), "response")
+  response <- "response"
+  # Run AutoML for regression
+  automl_models <- h2o.automl(x = predictors, y = response, training_frame = train, validation_frame = test, max_runtime_secs = 20, # or max_models = 20 for example
+                              seed = 123, 
+                              exclude_algos = NULL, 
+                              include_algos = c("DRF", "GBM", "DeepLearning", "GLM", "XGBoost", "StackedEnsemble"))
+  # View the AutoML Leaderboard
+  lb <- h2o.automl.get_leaderboard(automl_models, extra_columns = "ALL")
+  print(lb, n = nrow(lb)) # Print all rows instead of default (6 rows)
+  # Shutdown H2O to clean up
+  h2o.shutdown(prompt = FALSE)
+}
+
+
+###########Example 
+# Ensure you have defined 'handle_missing_data' as per previous instructions before running this function
+
+# Simulate data
+set.seed(123) # for reproducibility
+n <- 1000
+data <- data.frame(
+    numeric_var1 = rnorm(n),
+    numeric_var2 = rnorm(n),
+    categorical_var1 = sample(c("Level1", "Level2", "Level3", NA), n, replace = TRUE),
+    response = as.factor(sample(c("Yes", "No"), n, replace = TRUE))
+  )
+  # Introduce missing values
+  data[sample(1:n, 300), "numeric_var1"] <- NA # Random missing values
+  data[data$categorical_var1 %in% "Level3", "numeric_var2"] <- NA # Structural missing values
+  data$categorical_var1<-as.factor(data$categorical_var1)
+
+# Run the function
+run_h2o_classification_automl(data)
+
+############################################
+# Simulate data for regression
+set.seed(123) # Ensure reproducibility
+n <- 1000
+data <- data.frame(
+numeric_var1 = rnorm(n, mean = 50, sd = 10),
+numeric_var2 = rnorm(n, mean = 100, sd = 20),
+categorical_var1 = sample(c("Type1", "Type2", "Type3", NA), n, replace = TRUE),
+response = rnorm(n, mean = 200, sd = 50) # Numeric response variable
+)
+
+
+# Introduce missing values
+data[sample(1:n, 300), "numeric_var1"] <- NA # Random missing values
+data$categorical_var1 <- as.factor(data$categorical_var1)
+  
+run_h2o_regression_automl(data)
+
