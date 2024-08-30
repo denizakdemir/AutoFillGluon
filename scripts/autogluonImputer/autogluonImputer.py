@@ -17,6 +17,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error, mean_absolute_er
 from autogluon.eda import auto
 import contextlib
 import sys
+from datetime import datetime
 
 import logging
 logger = logging.getLogger(__name__)
@@ -62,21 +63,10 @@ def redirect_stdout_to_file(file_path):
         file.close()
 
 
-import shutil
-import pandas as pd
-from random import shuffle
-import logging
-from autogluon.tabular import TabularPredictor
-
-# Setup logging
-logger = logging.getLogger(__name__)
-
 class Imputer:
-    def __init__(self, num_iter=10, time_limit=60,  presets=['medium_quality', 'optimize_for_deployment'], column_settings=None, use_missingness_features=False, simple_impute_columns=[]):
+    def __init__(self, num_iter=10, time_limit=60, presets=['medium_quality', 'optimize_for_deployment'], column_settings=None, use_missingness_features=False, simple_impute_columns=[]):
         """
         Imputer leveraging AutoGluon for predictive imputation of missing data.
-
-        Uses separate AutoGluon models for each column with missing values to predict and impute based on other columns.
 
         Parameters
         ----------
@@ -112,31 +102,7 @@ class Imputer:
 
         colsummary : dict
             Summary statistics or unique values for each column, assisting in consistent imputation during the transform step.
-
-        Methods
-        -------
-        dataset_overview(train_data, test_data, label)
-            Provides an overview of the dataset.
-
-        fit(X_missing)
-            Fits the imputer to the data with missing values, training individual models for each column.
-
-        transform(X_missing)
-            Predictively imputes missing values on a new dataset using the models trained during the fit method.
-
-        feature_importance(X_imputed)
-            Provides feature importance for each trained model.
-
-        save_models(path)
-            Saves the trained models and other relevant attributes to the specified path.
-
-        load_models(path)
-            Loads the models and other relevant attributes from the specified path.
-
-        missingness_matrix(data)
-            If use_missingness_features=True, this method will generate a matrix indicating the missingness of the columns.
         """
-
         self.num_iter = num_iter
         self.time_limit = time_limit
         self.presets = presets
@@ -171,103 +137,99 @@ class Imputer:
             logger.error(f"An error occurred while providing the dataset overview: {e}")
             
         
-    def fit(self, X_missing):
+    def fit(self, X_missing, save_path=None):
         logger.info("Fitting the imputer to the data...")
-        self.missing_cells = pd.isnull(X_missing)
-        X_imputed = X_missing.copy(deep=True)
+        with redirect_stdout_to_file('autogluon_fit.log'):
+            self.missing_cells = pd.isnull(X_missing)
+            X_imputed = X_missing.copy()  # Shallow copy
 
-        if self.use_missingness_features:
-            missingness_cols = self.missingness_matrix(X_missing)
-            X_imputed = pd.concat([X_imputed, missingness_cols], axis=1)
+            if self.use_missingness_features:
+                missingness_cols = self.missingness_matrix(X_missing)
+                X_imputed = pd.concat([X_imputed, missingness_cols], axis=1)
 
-        # Initial imputation using mean/mode
-        for col in X_imputed.columns:
-            if X_imputed[col].dtype == 'object' or str(X_imputed[col].dtype) == 'category':
-                self.col_data_types[col] = 'object'
-                mode_value = X_imputed[col].mode()[0]
-                X_imputed[col].fillna(mode_value, inplace=True)
-                self.initial_imputes[col] = mode_value
-            else:
-                self.col_data_types[col] = 'numeric'
-                mean_value = X_imputed[col].mean()
-                X_imputed[col].fillna(mean_value, inplace=True)
-                self.initial_imputes[col] = mean_value
+            for col in X_imputed.columns:
+                if X_imputed[col].dtype == 'object' or str(X_imputed[col].dtype) == 'category':
+                    self.col_data_types[col] = 'object'
+                    mode_value = X_imputed[col].mode()[0]
+                    X_imputed[col].fillna(mode_value, inplace=True)
+                    self.initial_imputes[col] = mode_value
+                else:
+                    self.col_data_types[col] = 'numeric'
+                    mean_value = X_imputed[col].mean()
+                    X_imputed[col].fillna(mean_value, inplace=True)
+                    self.initial_imputes[col] = mean_value
 
-        for iter in range(self.num_iter):
-            try:
-                shutil.rmtree('AutogluonModels')
-            except OSError as e:
-                logger.error(f"Error removing directory: {e.filename} - {e.strerror}.")
+            for iter in range(self.num_iter):
+                try:
+                    shutil.rmtree('AutogluonModels')
+                except OSError as e:
+                    logger.error(f"Error removing directory: {e.filename} - {e.strerror}.")
 
-            columns = list(X_imputed.columns)
-            shuffle(columns)
+                columns = list(X_imputed.columns)
+                shuffle(columns)
 
-            for col in columns:
-                if (col.endswith('_missing') and self.use_missingness_features) or col in self.simple_impute_columns:
-                    continue
-                logger.debug(f"Processing column {col}")
+                for col in columns:
+                    if (col.endswith('_missing') and self.use_missingness_features) or col in self.simple_impute_columns:
+                        continue
+                    logger.debug(f"Processing column {col}")
 
-                tmp_X = X_imputed.drop(columns=[col])
-                mask = self.missing_cells[col] == False
+                    mask = self.missing_cells[col] == False
 
-                col_time_limit = self.column_settings.get(col, {}).get('time_limit', self.time_limit)
-                col_presets = self.column_settings.get(col, {}).get('presets', self.presets)
-                col_label = self.column_settings.get(col, {}).get('label', col)
-                col_eval_metric = self.column_settings.get(col, {}).get('eval_metric', None)
+                    col_time_limit = self.column_settings.get(col, {}).get('time_limit', self.time_limit)
+                    col_presets = self.column_settings.get(col, {}).get('presets', self.presets)
+                    col_label = self.column_settings.get(col, {}).get('label', col)
+                    col_eval_metric = self.column_settings.get(col, {}).get('eval_metric', None)
+                    if (save_path is not None):
+                        model_save_path = f"{save_path}/{datetime.now().strftime('%Y%m%d_%H%M%S')}_{col}/"
+                    else:
+                        model_save_path = f"AutogluonModels/ag-{datetime.now().strftime('%Y%m%d_%H%M%S')}_{col}/"
 
-                predictor = TabularPredictor(label=col_label, eval_metric=col_eval_metric).fit(
-                    tmp_X[mask],
-                    time_limit=col_time_limit,
-                    presets=col_presets,
-                    verbosity=0,
-                    num_bag_folds=5,
-                    num_bag_sets=1,
-                    num_stack_levels=1
-                )
+                    predictor = TabularPredictor(label=col_label, eval_metric=col_eval_metric, path=model_save_path).fit(
+                        X_imputed[mask],  # No need to create a temporary copy
+                        time_limit=col_time_limit,
+                        presets=col_presets,
+                        verbosity=0,
+                        num_bag_folds=5,
+                        num_bag_sets=1,
+                        num_stack_levels=1
+                    )
 
-                mask_missing = self.missing_cells[col] == True
-                if mask_missing.any():
-                    X_imputed.loc[mask_missing, col] = predictor.predict(tmp_X[mask_missing])
+                    mask_missing = self.missing_cells[col] == True
+                    if X_missing[col].isnull().any():
+                        X_imputed.loc[mask_missing, col] = predictor.predict(X_imputed.loc[mask_missing])
 
-                self.models[col] = predictor
+                    self.models[col] = predictor
 
-        # Collect summary statistics or unique categories
-        for col in X_imputed.columns:
-            if self.col_data_types[col] == 'numeric':
-                self.colsummary[col] = {'min': X_imputed[col].min(), 'max': X_imputed[col].max()}
-            else:
-                self.colsummary[col] = {'categories': X_imputed[col].unique()}
-                
+            self.colsummary = {}
+            for col in X_imputed.columns:
+                if self.col_data_types[col] == 'numeric':
+                    self.colsummary[col] = {'min': X_imputed[col].min(), 'max': X_imputed[col].max()}
+                else:
+                    self.colsummary[col] = {'categories': X_imputed[col].unique()}
         return X_imputed
 
 
     def transform(self, X_missing):
         """
-            Imputes missing values in the dataset using pre-trained models and initial imputation values.
+        Imputes missing values in the dataset using pre-trained models and initial imputation values.
 
-            This method performs iterative imputation on the dataset, filling in missing values based on models
-            trained for each column, and handles categorical variables by ensuring their categories match those
-            used during training. It also optionally includes missingness matrix columns if specified.
+        Parameters:
+        ----------
+        X_missing : DataFrame
+            The dataset with missing values that need to be imputed. It is assumed to have the same structure
+            as the dataset used during model training.
 
-            Parameters:
-            ----------
-            X_missing : DataFrame
-                The dataset with missing values that need to be imputed. It is assumed to have the same structure
-                as the dataset used during model training.
-
-            Returns:
-            -------
-            DataFrame
-                The dataset with imputed values. The imputed values are filled based on predictions from pre-trained
-                models and initial imputation values.
+        Returns:
+        -------
+        DataFrame
+            The dataset with imputed values. The imputed values are filled based on predictions from pre-trained
+            models and initial imputation values.
         """
-        X_imputed = X_missing.copy(deep=True)
-        # Add missingness matrix columns if use_missingness_features is True
+        X_imputed = X_missing.copy()  # Shallow copy
         if self.use_missingness_features:
             missingness_cols = self.missingness_matrix(X_missing)
             X_imputed = pd.concat([X_imputed, missingness_cols], axis=1)
 
-        # Fill the initial values
         for col in X_imputed.columns:
             X_imputed[col].fillna(self.initial_imputes[col], inplace=True)
 
@@ -276,24 +238,21 @@ class Imputer:
             shuffle(columns)
 
             for col in columns:
-                # Skip if the column is from the missingness matrix or is in simple_impute_columns
                 if (col.endswith('_missing') and self.use_missingness_features) or col in self.simple_impute_columns:
                     continue
                 mask_missing = pd.isnull(X_missing[col])
 
-                # Skip the prediction if there are no missing values in the current column
                 if not mask_missing.any():
                     continue
 
                 if col in self.models:
                     try:
-                        X_imputed.loc[mask_missing, col] = self.models[col].predict(X_imputed.drop(columns=[col]).loc[mask_missing])
+                        X_imputed.loc[mask_missing, col] = self.models[col].predict(X_imputed.loc[mask_missing])
                     except Exception as e:
                         logger.error(f"An error occurred while predicting column {col}: {e}")
                 else:
                     logger.warning(f"No model found for column {col}. Skipping imputation.")
                         
-            # The categorical variables should have the same classes as in the fit method
             for col in columns:
                 if self.col_data_types[col] == 'object':
                     X_imputed[col] = X_imputed[col].astype('category')
