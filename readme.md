@@ -2,19 +2,7 @@
 
 Machine learning-based missing data imputation using AutoGluon.
 
-<<<<<<< HEAD
-### Installation
-
-
-```sh
-pip install git+https://github.com/dakdemir-nmdp/AutoGluonImputer.git
-```
-
-
-### Prerequisites
-=======
 ## Overview
->>>>>>> 74e04e5 (Remove unnecessary files and clean up repository)
 
 AutoFillGluon provides a sophisticated approach to missing data imputation using machine learning models from [AutoGluon](https://auto.gluon.ai/). Instead of simple mean/mode imputation or traditional methods, AutoFillGluon trains a separate prediction model for each column with missing values, leveraging information from other columns to make intelligent predictions.
 
@@ -38,13 +26,13 @@ pip install autofillgluon
 For development, install directly from GitHub:
 
 ```bash
-pip install git+https://github.com/yourusername/AutoFillGluon.git
+pip install git+https://github.com/denizakdemir/AutoFillGluon.git
 ```
 
 Or clone and install locally:
 
 ```bash
-git clone https://github.com/yourusername/AutoFillGluon.git
+git clone https://github.com/denizakdemir/AutoFillGluon.git
 cd AutoFillGluon
 pip install -e .
 ```
@@ -294,7 +282,7 @@ If you use AutoFillGluon in your research, please cite:
 @software{autofillgluon,
   author = {Akdemir, Deniz},
   title = {AutoFillGluon: Machine Learning based Missing Data Imputation},
-  url = {https://github.com/yourusername/AutoFillGluon},
+  url = {https://github.com/denizakdemir/AutoFillGluon},
   year = {2023},
 }
 ```
