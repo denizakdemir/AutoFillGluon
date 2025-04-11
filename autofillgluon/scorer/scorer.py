@@ -150,21 +150,21 @@ concordance_index_scorer = make_scorer(
     name='concordance_index',
     score_func=scorefunct_cindex,
     optimum=1,
-    greater_is_better=True
+    greater_is_better=True # C-index: higher is better
 )
 
 cox_ph_scorer = make_scorer(
     name='cox_ph_likelihood',
     score_func=scorefunct_coxPH,
-    optimum=-np.inf,
-    greater_is_better=False
+    optimum=0, # NLL: lower is better (closer to 0)
+    greater_is_better=False # Explicitly set: lower NLL is better
 )
 
 exponential_nll_scorer = make_scorer(
     name='exponential_nll',
     score_func=negative_log_likelihood_exponential,
-    optimum=-np.inf,
-    greater_is_better=False
+    optimum=0, # NLL: lower is better (closer to 0)
+    greater_is_better=False # Explicitly set: lower NLL is better
 )
 
 

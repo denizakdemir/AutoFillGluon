@@ -1,16 +1,17 @@
 # Core dependencies
-autogluon.tabular>=0.8.0
-autogluon.core>=0.8.0
-autogluon.eda>=0.8.0
-autogluon.multimodal>=0.8.0
-autogluon.timeseries>=0.8.0
+autogluon.tabular==0.8.3
+autogluon.core==0.8.3
+autogluon.eda==0.8.3
+autogluon.multimodal==0.8.3
+autogluon.timeseries==0.8.3
 pandas>=1.5.0
 numpy>=1.20.0
 scikit-learn>=1.0.0
 lightgbm>=3.3.0
+scipy>=1.10.0,<1.11.0
 
 # Survival analysis
-lifelines>=0.27.0
+lifelines>=0.27.0,<0.28.0
 
 # Optional dependencies
 matplotlib>=3.5.0

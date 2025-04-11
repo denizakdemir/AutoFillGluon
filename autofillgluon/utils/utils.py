@@ -212,12 +212,16 @@ def plot_imputation_evaluation(original_df: pd.DataFrame,
         import pandas as pd
         
         # Calculate confusion matrix
-        cm = confusion_matrix(y_true, y_pred)
+        # Get unique labels present in the true and predicted values for the evaluated subset
+        labels = sorted(pd.unique(np.concatenate((y_true.astype(str), y_pred.astype(str)))))
         
-        # Convert to DataFrame for better visualization
+        # Calculate confusion matrix using these labels
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        
+        # Convert to DataFrame for better visualization using the actual labels present
         cm_df = pd.DataFrame(cm, 
-                            index=sorted(original_df[column].unique()), 
-                            columns=sorted(original_df[column].unique()))
+                            index=labels, 
+                            columns=labels)
         
         # Plot heatmap
         sns.heatmap(cm_df, annot=True, cmap='Blues', fmt='d')
